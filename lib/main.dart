@@ -12,8 +12,12 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      debugShowCheckedModeBanner: false,
       home: Scaffold(
-        appBar: AppBar(title: const Text("TEOAE Controller")),
+        appBar: AppBar(
+          title: const Text("TEOAE System"),
+          backgroundColor: Colors.teal,
+        ),
         body: const TeoaeControlScreen(),
       ),
     );
@@ -28,64 +32,103 @@ class TeoaeControlScreen extends StatefulWidget {
 }
 
 class _TeoaeControlScreenState extends State<TeoaeControlScreen> {
-  String _status = "Ready to measure";
-  String _result = "-- dB";
+  String _infoText = "Ready";
+  String _bigNumber = "--";
   bool _isLoading = false;
 
-  // 10.0.2.2 is the special IP address that points to your PC's Localhost
-  final String serverUrl = "http://192.168.0.29:5000/run_teoae";
+  // CONFIRM THIS IP IS STILL CORRECT!
+  final String baseUrl = "http://192.168.0.29:5000"; 
 
-  Future<void> runTest() async {
+  Future<void> runStep(String endpoint, String label) async {
     setState(() {
       _isLoading = true;
-      _status = "Measuring...";
+      _infoText = "$label...";
     });
 
     try {
-      final response = await http.get(Uri.parse(serverUrl));
+      final response = await http.get(Uri.parse("$baseUrl$endpoint"));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         setState(() {
-          _status = data['message'];
-          _result = "${data['spl']} dB";
+          _infoText = data['message'];
+          _bigNumber = data['value']; // Just the number
         });
       } else {
-        setState(() {
-          _status = "Server Error: ${response.statusCode}";
-        });
+        setState(() { _infoText = "Error: ${response.statusCode}"; });
       }
     } catch (e) {
-      setState(() {
-        _status = "Connection Failed. Is server running?";
-      });
+      setState(() { _infoText = "Connection Failed"; });
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      setState(() { _isLoading = false; });
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Center(
+    return Padding(
+      padding: const EdgeInsets.all(20.0),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text("TEOAE Result", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-          SizedBox(height: 20),
-          Text(_result, style: TextStyle(fontSize: 48, color: Colors.blue)),
-          SizedBox(height: 40),
-          Text(_status, style: TextStyle(color: Colors.grey)),
-          SizedBox(height: 20),
-          ElevatedButton(
-            onPressed: _isLoading ? null : runTest,
-            style: ElevatedButton.styleFrom(
-              padding: EdgeInsets.symmetric(horizontal: 40, vertical: 20),
+          // DISPLAY AREA
+          Container(
+            padding: EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.grey[200],
+              borderRadius: BorderRadius.circular(10),
             ),
-            child: _isLoading 
-                ? CircularProgressIndicator(color: Colors.white) 
-                : Text("RUN TEST", style: TextStyle(fontSize: 18)),
+            child: Column(
+              children: [
+                Text(_infoText, style: TextStyle(fontSize: 16, color: Colors.black54)),
+                SizedBox(height: 10),
+                Text(
+                  "$_bigNumber dB", 
+                  style: TextStyle(fontSize: 50, fontWeight: FontWeight.bold, color: Colors.teal)
+                ),
+              ],
+            ),
+          ),
+          
+          SizedBox(height: 40),
+          
+          // BUTTON 1: MIC CALIBRATION
+          ElevatedButton(
+            onPressed: _isLoading ? null : () => runStep("/step1_calibrate_mic", "Calibrating Mic"),
+            child: Text("1. CALIBRATE MIC (94dB)"),
+            style: ElevatedButton.styleFrom(
+              padding: EdgeInsets.all(15),
+              backgroundColor: Colors.grey[700],
+              foregroundColor: Colors.white,
+            ),
+          ),
+          
+          SizedBox(height: 15),
+
+          // BUTTON 2: SPEAKER CHECK
+          ElevatedButton(
+            onPressed: _isLoading ? null : () => runStep("/step2_check_speaker", "Checking Speaker"),
+            child: Text("2. CHECK SPEAKER (Tone)"),
+            style: ElevatedButton.styleFrom(
+              padding: EdgeInsets.all(15),
+              backgroundColor: Colors.orange[800],
+              foregroundColor: Colors.white,
+            ),
+          ),
+
+          SizedBox(height: 15),
+
+          // BUTTON 3: TEOAE TEST
+          ElevatedButton(
+            onPressed: _isLoading ? null : () => runStep("/step3_run_teoae", "Measuring TEOAE"),
+            child: Text("3. RUN TEOAE TEST"),
+            style: ElevatedButton.styleFrom(
+              padding: EdgeInsets.all(20),
+              backgroundColor: Colors.blue[800],
+              foregroundColor: Colors.white,
+              textStyle: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
           ),
         ],
       ),
